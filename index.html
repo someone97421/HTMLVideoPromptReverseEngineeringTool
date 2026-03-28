@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频/图片反推器</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #7d8590;
+            --accent: #2f81f7;
+            --accent-hover: #388bfd;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 12px;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        /* Collapsible Panels */
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        
+        .panel-header:hover {
+            background: var(--border-color);
+        }
+        
+        .panel-title {
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .panel-icon {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+        
+        .panel.collapsed .panel-icon {
+            transform: rotate(-90deg);
+        }
+        
+        .panel-body {
+            padding: 12px;
+            display: none;
+        }
+        
+        .panel:not(.collapsed) .panel-body {
+            display: block;
+        }
+        
+        /* Form Elements */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        input, textarea, select {
+            padding: 6px 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        textarea.small {
+            min-height: 60px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn:hover {
+            background: var(--border-color);
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+            color: #fff;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: #fff;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        /* File Upload */
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(47, 129, 247, 0.1);
+        }
+        
+        .upload-zone.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .upload-zone-text {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        
+        .upload-zone-hint {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .file-list {
+            margin-top: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .file-preview {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+        }
+        
+        .file-preview img, .file-preview video {
+            max-width: 50px;
+            max-height: 50px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+        
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .file-name {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .file-size {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .file-status {
+            font-size: 11px;
+            color: var(--accent);
+        }
+        
+        .file-status.done {
+            color: var(--success);
+        }
+        
+        .file-status.error {
+            color: var(--danger);
+        }
+        
+        .file-remove {
+            color: var(--danger);
+            cursor: pointer;
+            padding: 4px;
+        }
+        
+        .file-count {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        /* Input Section */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .input-box {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .input-box-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        
+        /* Video Options */
+        .video-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .option-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .option-row label {
+            min-width: 60px;
+        }
+        
+        .option-row input, .option-row select {
+            flex: 1;
+        }
+        
+        /* Progress */
+        .progress-container {
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-primary);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .progress-text {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        /* Output Section */
+        .output-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .output-content {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 150px;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .output-content.markdown {
+            white-space: normal;
+        }
+        
+        .output-content.markdown pre {
+            background: var(--bg-secondary);
+            padding: 12px;
+            border-radius: 6px;
+            overflow: auto;
+        }
+        
+        .output-content.markdown code {
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+        }
+        
+        /* History */
+        .history-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 8px;
+        }
+        
+        .history-item {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .history-item:hover {
+            border-color: var(--accent);
+        }
+        
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .history-type {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--bg-primary);
+        }
+        
+        .history-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        .history-prompt {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-secondary);
+        }
+        
+        .history-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        
+        /* System Prompt Panel */
+        .system-preset-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+            margin-bottom: 12px;
+        }
+        
+        .system-preset-row .form-group {
+            flex: 1;
+        }
+        
+        /* Toggle Switch */
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        
+        .toggle-switch {
+            width: 36px;
+            height: 18px;
+            background: var(--border-color);
+            border-radius: 9px;
+            position: relative;
+            transition: background 0.2s;
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+        
+        .toggle input:checked + .toggle-switch {
+            background: var(--accent);
+        }
+        
+        .toggle input:checked + .toggle-switch::after {
+            transform: translateX(18px);
+        }
+        
+        .toggle input {
+            display: none;
+        }
+        
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 40px;
+        }
+        
+        /* Status Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge-info {
+            background: rgba(47, 129, 247, 0.2);
+            color: var(--accent);
+        }
+        
+        .badge-success {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--success);
+        }
+        
+        .badge-warning {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--warning);
+        }
+        
+        /* Notice */
+        .notice {
+            background: rgba(210, 153, 34, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--warning);
+            margin-top: 8px;
+        }
+        
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .toast {
+            padding: 10px 16px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+        .toast.warning { border-color: var(--warning); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎬 视频/图片反推器</h1>
+            <div class="header-actions">
+                <span id="upload-status" class="badge badge-info">
+                    准备就绪
+                </span>
+            </div>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="panel collapsed" id="settings-panel">
+            <div class="panel-header" onclick="togglePanel('settings-panel')">
+                <span class="panel-title">
+                    <span class="panel-icon">▼</span>
+                    ⚙️ 设置
+                </span>
+                <div class="btn-group">
+                    <button class="btn btn-sm" onclick="event.stopPropagation(); saveConfig()">💾 保存配置</button>
+                    <button class="btn btn-sm" onclick="event.stopPropagation(); loadConfig()">📂 加载配置</button>
+                    <input type="file" id="config-file" style="display:none" accept=".json" onchange="handleConfigFile(event)">
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label>Base URL</label>
+                        <input type="text" id="base-url" placeholder="https://ai.t8star.cn/v1" value="https://ai.t8star.cn/v1">
+                    </div>
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="password" id="api-key" placeholder="sk-...">
+                    </div>
+                    <div class="form-group">
+                        <label>模型名称</label>
+                        <input type="text" id="model" placeholder="gemini-3-flash-preview" value="gemini-3-flash-preview">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Tokens</label>
+                        <input type="number" id="max-tokens" placeholder="4000" value="4000">
+                    </div>
+                    <div class="form-group">
+                        <label>Temperature (0-2)</label>
+                        <input type="number" id="temperature" placeholder="0.7" value="0.7" min="0" max="2" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Top P (0-1)</label>
+                        <input type="number" id="top-p" placeholder="1" value="1" min="0" max="1" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>历史记录条数</label>
+                        <input type="number" id="history-limit" placeholder="20" value="20" min="1" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Stream 输出</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="stream" checked>
+                            <span class="toggle-switch"></span>
+                            <span>启用</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Prompt Panel -->
+        <div class="panel" id="system-prompt-panel">
+            <div class="panel-header" onclick="togglePanel('system-prompt-panel')">
+                <span class="panel-title">
+                    <span class="panel-icon">▼</span>
+                    🤖 系统提示词
+                </span>
+                <span class="badge badge-info" id="current-preset-name">默认</span>
+            </div>
+            <div class="panel-body">
+                <div class="system-preset-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label>选择预设</label>
+                        <select id="system-preset-select" onchange="loadSystemPreset()">
+                            <option value="default">默认（无系统提示词）</option>
+                        </select>
+                    </div>
+                    <div class="btn-group" style="margin-bottom: 4px;">
+                        <button class="btn btn-primary btn-sm" onclick="saveToCurrentPreset()">💾 保存</button>
+                        <button class="btn btn-success btn-sm" onclick="saveAsNewPreset()">💾 另存为</button>
+                        <button class="btn btn-sm" onclick="renameCurrentPreset()">✏️ 重命名</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSystemPreset()">🗑️ 删除</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>系统提示词内容</label>
+                    <textarea id="system-prompt" class="small" placeholder="输入系统提示词，用于设置AI的角色和行为方式...（可选）"></textarea>
+                </div>
+                <div class="btn-group" style="margin-top: 8px;">
+                    <button class="btn btn-sm" onclick="useSystemPreset('video')">📹 视频反推预设</button>
+                    <button class="btn btn-sm" onclick="useSystemPreset('image')">📷 图片反推预设</button>
+                    <button class="btn btn-sm" onclick="clearSystemPrompt()">清空</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Section -->
+        <div class="panel" id="input-panel">
+            <div class="panel-header" onclick="togglePanel('input-panel')">
+                <span class="panel-title">
+                    <span class="panel-icon">▼</span>
+                    📝 输入
+                </span>
+            </div>
+            <div class="panel-body">
+                <!-- Prompt -->
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>提示词 / Prompt</label>
+                    <textarea id="prompt" placeholder="描述你的需求，例如：详细描述这个视频的内容..."></textarea>
+                </div>
+
+                <div class="input-grid">
+                    <!-- Image Upload -->
+                    <div class="input-box">
+                        <div class="input-box-title">📷 图片 <span id="image-count" class="file-count"></span></div>
+                        <div class="upload-zone" id="image-zone" onclick="document.getElementById('image-input').click()">
+                            <div class="upload-zone-text">点击、拖拽或粘贴图片</div>
+                            <div class="upload-zone-hint">支持多张 JPG, PNG, GIF, WebP</div>
+                        </div>
+                        <input type="file" id="image-input" accept="image/*" multiple style="display:none" onchange="handleImageFiles(event)">
+                        <div class="file-list" id="image-list"></div>
+                    </div>
+
+                    <!-- Video Upload -->
+                    <div class="input-box">
+                        <div class="input-box-title">🎬 视频 <span id="video-count" class="file-count"></span></div>
+                        <div class="upload-zone" id="video-zone" onclick="document.getElementById('video-input').click()">
+                            <div class="upload-zone-text">点击、拖拽或粘贴视频</div>
+                            <div class="upload-zone-hint">上传到服务器获取链接，单文件限制 20MB</div>
+                        </div>
+                        <input type="file" id="video-input" accept="video/*" multiple style="display:none" onchange="handleVideoFiles(event)">
+                        <div class="file-list" id="video-list"></div>
+
+                        <!-- Progress -->
+                        <div class="progress-container" id="video-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="video-progress-fill"></div>
+                            </div>
+                            <div class="progress-text" id="video-progress-text">准备上传...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video URL Input -->
+                <div class="form-group" style="margin-top: 12px;">
+                    <label>或输入视频 URL（可选，多个URL用换行分隔）</label>
+                    <textarea id="video-url" class="small" placeholder="https://example.com/video1.mp4&#10;https://example.com/video2.mp4"></textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="btn-group" style="margin-top: 12px;">
+                    <button class="btn btn-primary" id="submit-btn" onclick="submitRequest()">
+                        🚀 提交
+                    </button>
+                    <button class="btn" onclick="clearInput()">
+                        🗑️ 清空
+                    </button>
+                    <button class="btn" id="retry-btn" onclick="retryRequest()" disabled>
+                        🔄 重试
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Section -->
+        <div class="panel" id="output-panel">
+            <div class="panel-header" onclick="togglePanel('output-panel')">
+                <span class="panel-title">
+                    <span class="panel-icon">▼</span>
+                    📄 输出
+                </span>
+            </div>
+            <div class="panel-body">
+                <div class="output-toolbar">
+                    <label class="toggle">
+                        <input type="checkbox" id="markdown-toggle" onchange="toggleMarkdown()">
+                        <span class="toggle-switch"></span>
+                        <span>Markdown</span>
+                    </label>
+                    <button class="btn btn-sm" onclick="copyOutput()">📋 复制</button>
+                </div>
+                <div class="output-content" id="output-content">
+                    <div class="empty-state">等待提交...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div class="panel collapsed" id="history-panel">
+            <div class="panel-header" onclick="togglePanel('history-panel')">
+                <span class="panel-title">
+                    <span class="panel-icon">▼</span>
+                    📚 历史记录
+                </span>
+                <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); clearHistory()">清空</button>
+            </div>
+            <div class="panel-body">
+                <div class="history-list" id="history-list">
+                    <div class="empty-state">暂无历史记录</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // ==================== State ====================
+        const state = {
+            images: [],
+            videos: [],
+            videoUrls: [],
+            lastRequest: null,
+            history: [],
+            isProcessing: false,
+            systemPresets: {},
+            currentPreset: 'default'
+        };
+
+        const MAX_VIDEO_SIZE = 20 * 1024 * 1024; // 20MB
+
+        // ==================== Video Upload to Server ====================
+        function updateUploadStatus(status, message) {
+            const el = document.getElementById('upload-status');
+            if (status === 'uploading') {
+                el.className = 'badge badge-warning';
+                el.innerHTML = `<span class="loading"></span> ${message}`;
+            } else if (status === 'ready') {
+                el.className = 'badge badge-success';
+                el.innerHTML = '✓ 准备就绪';
+            } else if (status === 'error') {
+                el.className = 'badge badge-danger';
+                el.innerHTML = '✗ 上传失败';
+            }
+        }
+
+        async function uploadVideoToServer(file, videoId) {
+            const baseUrl = document.getElementById('base-url').value.trim();
+            const apiKey = document.getElementById('api-key').value.trim();
+
+            if (!apiKey) {
+                throw new Error('请先设置 API Key');
+            }
+
+            updateVideoStatus(videoId, 'uploading', '上传中...');
+            updateUploadStatus('uploading', '上传视频...');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // 解析 baseUrl 获取主机名
+                let uploadUrl = baseUrl;
+                // 如果 baseUrl 以 /v1 结尾，去掉它来获取基础 URL
+                if (uploadUrl.endsWith('/v1')) {
+                    uploadUrl = uploadUrl.slice(0, -3);
+                }
+                // 确保不以 / 结尾
+                uploadUrl = uploadUrl.replace(/\/$/, '');
+
+                const response = await fetch(`${uploadUrl}/v1/files`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`上传失败: HTTP ${response.status} - ${errorText}`);
+                }
+
+                const result = await response.json();
+
+                // 根据返回结构获取文件 URL
+                let fileUrl;
+                if (result.url) {
+                    fileUrl = result.url;
+                } else if (result.id) {
+                    // 如果返回的是 id，构建 URL
+                    fileUrl = `${uploadUrl}/v1/files/${result.id}`;
+                } else {
+                    throw new Error('上传返回格式异常');
+                }
+
+                updateVideoStatus(videoId, 'done', '已上传');
+                updateUploadStatus('ready');
+
+                return fileUrl;
+
+            } catch (err) {
+                updateVideoStatus(videoId, 'error', '上传失败');
+                updateUploadStatus('error');
+                throw err;
+            }
+        }
+
+        // ==================== UI Helpers ====================
+        function togglePanel(id) {
+            document.getElementById(id).classList.toggle('collapsed');
+        }
+
+        function showProgress(show) {
+            document.getElementById('video-progress').style.display = show ? 'block' : 'none';
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('video-progress-fill').style.width = percent + '%';
+            document.getElementById('video-progress-text').textContent = text;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // ==================== File Handling ====================
+        function getFileExtension(filename) {
+            return filename.substring(filename.lastIndexOf('.'));
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function generateId() {
+            return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Images
+        async function handleImageFiles(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+            
+            for (const file of files) {
+                const id = generateId();
+                const dataUrl = await fileToBase64(file);
+                state.images.push({ id, file, dataUrl });
+            }
+            
+            renderImageList();
+            showToast(`已添加 ${files.length} 张图片`, 'success');
+        }
+
+        function renderImageList() {
+            const container = document.getElementById('image-list');
+            document.getElementById('image-count').textContent = state.images.length > 0 ? `(${state.images.length})` : '';
+            
+            container.innerHTML = state.images.map(img => `
+                <div class="file-preview">
+                    <img src="${img.dataUrl}" alt="preview">
+                    <div class="file-info">
+                        <div class="file-name">${img.file.name}</div>
+                        <div class="file-size">${formatFileSize(img.file.size)}</div>
+                    </div>
+                    <span class="file-remove" onclick="removeImage('${img.id}')">✕</span>
+                </div>
+            `).join('');
+        }
+
+        function removeImage(id) {
+            state.images = state.images.filter(img => img.id !== id);
+            renderImageList();
+        }
+
+        // Videos
+        async function handleVideoFiles(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+
+            // 检查文件大小限制
+            const oversizedFiles = files.filter(f => f.size > MAX_VIDEO_SIZE);
+            if (oversizedFiles.length > 0) {
+                showToast(`视频文件超过 20MB 限制: ${oversizedFiles.map(f => f.name).join(', ')}`, 'error');
+                return;
+            }
+
+            // 检查 API Key
+            const apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                showToast('请先在设置中配置 API Key', 'warning');
+                return;
+            }
+
+            for (const file of files) {
+                const id = generateId();
+                state.videos.push({ id, file, fileUrl: null, status: 'pending', statusText: '等待上传...' });
+            }
+
+            renderVideoList();
+            showToast(`已添加 ${files.length} 个视频，开始上传...`, 'success');
+
+            showProgress(true);
+            updateProgress(0, '准备上传...');
+
+            const totalVideos = state.videos.filter(v => v.status === 'pending').length;
+            let processedCount = 0;
+
+            for (const video of state.videos.filter(v => v.status === 'pending')) {
+                try {
+                    document.getElementById('submit-btn').disabled = true;
+                    processedCount++;
+                    updateProgress(Math.round((processedCount - 1) / totalVideos * 100), `上传中... ${processedCount}/${totalVideos}`);
+
+                    video.fileUrl = await uploadVideoToServer(video.file, video.id);
+                    video.status = 'done';
+                    video.statusText = '已上传';
+                } catch (err) {
+                    console.error(err);
+                    video.status = 'error';
+                    video.statusText = '上传失败: ' + err.message;
+                    showToast(`视频 ${video.file.name} 上传失败: ${err.message}`, 'error');
+                }
+                renderVideoList();
+            }
+
+            showProgress(false);
+            document.getElementById('submit-btn').disabled = false;
+        }
+
+        function renderVideoList() {
+            const container = document.getElementById('video-list');
+            document.getElementById('video-count').textContent = state.videos.length > 0 ? `(${state.videos.length})` : '';
+
+            container.innerHTML = state.videos.map(video => {
+                const url = URL.createObjectURL(video.file);
+                return `
+                    <div class="file-preview">
+                        <video src="${url}" muted></video>
+                        <div class="file-info">
+                            <div class="file-name">${video.file.name}</div>
+                            <div class="file-size">${formatFileSize(video.file.size)}</div>
+                            <div class="file-status ${video.status}">${video.statusText}</div>
+                            ${video.fileUrl ? `<div class="file-url" title="${video.fileUrl}">${video.fileUrl}</div>` : ''}
+                        </div>
+                        <span class="file-remove" onclick="removeVideo('${video.id}')">✕</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateVideoStatus(id, status, text) {
+            const video = state.videos.find(v => v.id === id);
+            if (video) {
+                video.status = status;
+                video.statusText = text;
+                renderVideoList();
+            }
+        }
+
+        function removeVideo(id) {
+            state.videos = state.videos.filter(v => v.id !== id);
+            renderVideoList();
+        }
+
+        // ==================== Drag & Drop ====================
+        function setupDragDrop(zoneId, inputId, isVideo = false) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('dragover');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+
+                // 如果是视频区域，检查文件大小
+                if (isVideo) {
+                    const files = Array.from(e.dataTransfer.files);
+                    const oversizedFiles = files.filter(f => f.size > MAX_VIDEO_SIZE);
+                    if (oversizedFiles.length > 0) {
+                        showToast(`视频文件超过 20MB 限制: ${oversizedFiles.map(f => f.name).join(', ')}`, 'error');
+                        return;
+                    }
+                }
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    const dt = new DataTransfer();
+                    for (const file of files) {
+                        dt.items.add(file);
+                    }
+                    input.files = dt.files;
+                    input.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            const imageFiles = [];
+            
+            for (let item of items) {
+                if (item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    imageFiles.push(file);
+                }
+            }
+            
+            if (imageFiles.length > 0) {
+                for (const file of imageFiles) {
+                    const id = generateId();
+                    fileToBase64(file).then(dataUrl => {
+                        state.images.push({ id, file, dataUrl });
+                        renderImageList();
+                    });
+                }
+                showToast(`已粘贴 ${imageFiles.length} 张图片`, 'success');
+            }
+        });
+
+        // ==================== System Prompt ====================
+        // 内置预设（不可修改，但可以作为模板）
+        const BUILTIN_PRESETS = {
+            'default': { name: '默认（无系统提示词）', content: '', builtin: true },
+            'video': {
+                name: '📹 视频反推',
+                content: `你是一个专业的视频生成提示词反推器生成器。
+你的唯一目标是将用户输入的视频，反推成一段双语高质量视频生成配置和提示词。
+
+### 核心指令
+1. 纯文本输出：严禁使用任何Markdown格式（不要使用 **粗体**、## 标题、代码块或分割线）。仅使用纯文字和换行。
+2. 结构顺序：先输出中文模块，再输出英文模块。模块之间空一行。
+3. 按切镜分割时间轴，每一段时间轴都要详细描述运镜、景别等基本镜头信息。
+
+###内容构建要求
+- 时态：全程使用现在时（Present Tense）。
+- 视觉提示词：必须是一个完整的、单一的流动段落150字左右。仅描述画面、光影、动作和运镜，不要包含声音描述。
+- 声音独立：将音频/声音描述从正文中剥离，放在时间轴之后单独列出。
+
+### 严格输出模板
+无论用户输入什么，请严格模仿以下范例格式输出（不带方括号）：
+[00]s-[XX]s: [中文时间轴描述]
+[XX]s-[XX]s: [中文时间轴描述]
+[完整动作流、运镜]
+[中文视觉提示词段落，包含风格、光影]
+音频: [中文音频/环境音/对白描述]
+[00]s-[XX]s: [English timeline description]
+[XX]s-[XX]s: [English timeline description]
+[continuous action flow,camera movement]
+[English visual prompt paragraph, including style, lighting]
+Audio: [English audio/ambient/dialogue description]`,
+                builtin: true
+            },
+            'image': {
+                name: '📷 图片反推',
+                content: `核心角色：
+你是一位顶级AI绘画提示词工程师。你的任务是将用户的想法转化为适用于AI图像生成器的提示词。综合考虑用户提供的提示词及要求或图像等信息，推测用户要求，按要求完成编写，修改，扩写等操作。
+
+核心指令：
+每次回应必须生成中文提示词和英文提示词，先输出中文，再输出英文。
+
+提示词构建要点：
+风格：该作品风格和类别。
+主体：明确画面核心，具体描述人物或物体及其特征。
+场景与背景：描绘故事发生的环境与氛围。
+构图与视角：确定取景方式与镜头效果，如特写、广角、低角度、浅景深、背景虚化等。
+光照：设置光线类型。
+色彩：确定主色调等。
+其他：其他需要补充的内容。
+
+规则补充：
+如果场景中出现人物，必须详细描述人物的外貌特征、神态、服饰、姿态、在画面中的位置、眼神方向等信息。
+最终提示词的中文长度控制在约200字左右，英文版本按中文字数比例自适应。
+
+输出结构：
+将以上元素融合为一个以逗号分隔的英文短语，可调整顺序，常见顺序为：风格，主体，动态，场景背景，构图与视角，光照，色彩，其他。
+
+输出格式要求：
+无需输出思考过程直接输出提示词内容
+直接输出两段内容，无需任何说明或格式符号：
+第一段为中文提示词
+第二段为英文提示词`,
+                builtin: true
+            }
+        };
+
+        function initSystemPresets() {
+            const saved = localStorage.getItem('reverse_prompt_system_presets');
+            if (saved) {
+                // 合并保存的自定义预设和内置预设
+                const savedPresets = JSON.parse(saved);
+                // 内置预设始终使用最新版本，但保持自定义预设
+                state.systemPresets = { ...BUILTIN_PRESETS };
+                // 添加自定义预设（排除内置预设的键）
+                Object.entries(savedPresets).forEach(([key, preset]) => {
+                    if (!BUILTIN_PRESETS[key]) {
+                        state.systemPresets[key] = preset;
+                    }
+                });
+            } else {
+                state.systemPresets = { ...BUILTIN_PRESETS };
+            }
+            renderSystemPresetSelect();
+            // 默认加载 default 预设
+            loadSystemPreset();
+        }
+
+        function saveSystemPresetsToStorage() {
+            // 只保存非内置预设
+            const customPresets = {};
+            Object.entries(state.systemPresets).forEach(([key, preset]) => {
+                if (!preset.builtin) {
+                    customPresets[key] = preset;
+                }
+            });
+            localStorage.setItem('reverse_prompt_system_presets', JSON.stringify(customPresets));
+        }
+
+        function renderSystemPresetSelect() {
+            const select = document.getElementById('system-preset-select');
+            const currentValue = select.value;
+
+            select.innerHTML = Object.entries(state.systemPresets).map(([key, preset]) =>
+                `<option value="${key}">${preset.builtin ? '' : '自定义: '}${preset.name}</option>`
+            ).join('');
+
+            if (state.systemPresets[currentValue]) {
+                select.value = currentValue;
+            }
+        }
+
+        function loadSystemPreset() {
+            const key = document.getElementById('system-preset-select').value;
+            const preset = state.systemPresets[key];
+            if (preset) {
+                document.getElementById('system-prompt').value = preset.content;
+                document.getElementById('current-preset-name').textContent = preset.name;
+                state.currentPreset = key;
+            }
+        }
+
+        // 保存到当前预设（覆盖保存）
+        function saveToCurrentPreset() {
+            const key = document.getElementById('system-preset-select').value;
+            const preset = state.systemPresets[key];
+
+            if (!preset) {
+                showToast('请先选择一个预设', 'warning');
+                return;
+            }
+
+            // 内置预设不能直接覆盖
+            if (preset.builtin) {
+                const confirmSave = confirm(`"${preset.name}" 是内置预设，不能直接修改。\n是否另存为新预设？`);
+                if (confirmSave) {
+                    saveAsNewPreset();
+                }
+                return;
+            }
+
+            const content = document.getElementById('system-prompt').value;
+            preset.content = content;
+            saveSystemPresetsToStorage();
+            showToast(`已保存到 "${preset.name}"`, 'success');
+        }
+
+        // 另存为新预设
+        function saveAsNewPreset() {
+            const content = document.getElementById('system-prompt').value;
+            if (!content.trim()) {
+                showToast('系统提示词内容为空，无法保存', 'warning');
+                return;
+            }
+
+            const name = prompt('请输入新预设名称：');
+            if (!name || !name.trim()) return;
+
+            const key = 'custom_' + Date.now();
+            state.systemPresets[key] = { name: name.trim(), content };
+            saveSystemPresetsToStorage();
+            renderSystemPresetSelect();
+
+            document.getElementById('system-preset-select').value = key;
+            document.getElementById('current-preset-name').textContent = name.trim();
+            state.currentPreset = key;
+
+            showToast('新预设已保存', 'success');
+        }
+
+        // 重命名当前预设
+        function renameCurrentPreset() {
+            const key = document.getElementById('system-preset-select').value;
+            const preset = state.systemPresets[key];
+
+            if (!preset) {
+                showToast('请先选择一个预设', 'warning');
+                return;
+            }
+
+            if (preset.builtin) {
+                showToast('内置预设不能重命名', 'warning');
+                return;
+            }
+
+            const newName = prompt('请输入新名称：', preset.name);
+            if (!newName || !newName.trim()) return;
+
+            preset.name = newName.trim();
+            saveSystemPresetsToStorage();
+            renderSystemPresetSelect();
+            document.getElementById('system-preset-select').value = key;
+            document.getElementById('current-preset-name').textContent = newName.trim();
+
+            showToast('预设已重命名', 'success');
+        }
+
+        // 删除预设
+        function deleteSystemPreset() {
+            const key = document.getElementById('system-preset-select').value;
+            const preset = state.systemPresets[key];
+
+            if (!preset) {
+                showToast('请先选择一个预设', 'warning');
+                return;
+            }
+
+            if (preset.builtin) {
+                showToast('内置预设不能删除', 'warning');
+                return;
+            }
+
+            if (!confirm(`确定要删除预设 "${preset.name}" 吗？`)) return;
+
+            delete state.systemPresets[key];
+            saveSystemPresetsToStorage();
+            renderSystemPresetSelect();
+
+            document.getElementById('system-preset-select').value = 'default';
+            loadSystemPreset();
+
+            showToast('预设已删除', 'success');
+        }
+
+        // 应用内置预设模板
+        function useSystemPreset(type) {
+            const preset = BUILTIN_PRESETS[type];
+            if (preset) {
+                document.getElementById('system-prompt').value = preset.content;
+                showToast(`已应用${preset.name}模板`, 'success');
+            }
+        }
+
+        function clearSystemPrompt() {
+            document.getElementById('system-prompt').value = '';
+        }
+
+        // ==================== Config ====================
+        function saveConfig() {
+            const config = {
+                baseUrl: document.getElementById('base-url').value,
+                apiKey: document.getElementById('api-key').value,
+                model: document.getElementById('model').value,
+                maxTokens: document.getElementById('max-tokens').value,
+                temperature: document.getElementById('temperature').value,
+                topP: document.getElementById('top-p').value,
+                historyLimit: document.getElementById('history-limit').value,
+                stream: document.getElementById('stream').checked
+            };
+            localStorage.setItem('reverse_prompt_config', JSON.stringify(config));
+            
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reverse-prompt-config-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('配置已保存', 'success');
+        }
+
+        function loadConfig() {
+            document.getElementById('config-file').click();
+        }
+
+        function handleConfigFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    document.getElementById('base-url').value = config.baseUrl || '';
+                    document.getElementById('api-key').value = config.apiKey || '';
+                    document.getElementById('model').value = config.model || '';
+                    document.getElementById('max-tokens').value = config.maxTokens || '';
+                    document.getElementById('temperature').value = config.temperature || '';
+                    document.getElementById('top-p').value = config.topP || '';
+                    document.getElementById('history-limit').value = config.historyLimit || '20';
+                    document.getElementById('stream').checked = config.stream !== false;
+                    
+                    localStorage.setItem('reverse_prompt_config', JSON.stringify(config));
+                    showToast('配置已加载', 'success');
+                } catch (err) {
+                    showToast('配置文件格式错误', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function autoLoadConfig() {
+            const saved = localStorage.getItem('reverse_prompt_config');
+            if (saved) {
+                try {
+                    const config = JSON.parse(saved);
+                    document.getElementById('base-url').value = config.baseUrl || 'https://ai.t8star.cn/v1';
+                    document.getElementById('api-key').value = config.apiKey || '';
+                    document.getElementById('model').value = config.model || 'gemini-3-flash-preview';
+                    document.getElementById('max-tokens').value = config.maxTokens || '4000';
+                    document.getElementById('temperature').value = config.temperature || '0.7';
+                    document.getElementById('top-p').value = config.topP || '1';
+                    document.getElementById('history-limit').value = config.historyLimit || '20';
+                    document.getElementById('stream').checked = config.stream !== false;
+                } catch {}
+            }
+        }
+
+        // ==================== Submit ====================
+        async function submitRequest() {
+            if (state.isProcessing) return;
+            
+            // 提示词不是必需的，如果没有填则使用空格
+            const prompt = document.getElementById('prompt').value.trim() || ' ';
+            const videoUrlText = document.getElementById('video-url').value.trim();
+            const systemPrompt = document.getElementById('system-prompt').value.trim();
+            
+            const readyVideos = state.videos.filter(v => v.status === 'done' && v.fileUrl);
+            const videoUrls = videoUrlText ? videoUrlText.split('\n').map(u => u.trim()).filter(u => u) : [];
+
+            if (state.images.length === 0 && readyVideos.length === 0 && videoUrls.length === 0) {
+                showToast('请上传图片或视频，或输入视频URL', 'warning');
+                return;
+            }
+            
+            const baseUrl = document.getElementById('base-url').value.trim();
+            const apiKey = document.getElementById('api-key').value.trim();
+            const model = document.getElementById('model').value.trim();
+            
+            if (!apiKey) {
+                showToast('请输入 API Key', 'warning');
+                return;
+            }
+            
+            state.isProcessing = true;
+            document.getElementById('submit-btn').innerHTML = '<span class="loading"></span> 提交中...';
+            
+            const outputEl = document.getElementById('output-content');
+            outputEl.innerHTML = '<div class="empty-state">请求中...</div>';
+            
+            const content = [{ type: 'text', text: prompt }];
+            
+            for (const img of state.images) {
+                content.push({
+                    type: 'image_url',
+                    image_url: { url: img.dataUrl }
+                });
+            }
+            
+            for (const video of readyVideos) {
+                content.push({
+                    type: 'image_url',
+                    image_url: { url: video.fileUrl }
+                });
+            }
+            
+            for (const url of videoUrls) {
+                content.push({
+                    type: 'image_url',
+                    image_url: { url: url }
+                });
+            }
+            
+            const messages = [];
+            if (systemPrompt) {
+                messages.push({ role: 'system', content: systemPrompt });
+            }
+            messages.push({ role: 'user', content: content });
+            
+            const requestBody = {
+                model: model,
+                messages: messages,
+                max_tokens: parseInt(document.getElementById('max-tokens').value) || 4000,
+                temperature: parseFloat(document.getElementById('temperature').value) || 0.7,
+                top_p: parseFloat(document.getElementById('top-p').value) || 1,
+                stream: document.getElementById('stream').checked
+            };
+            
+            state.lastRequest = {
+                baseUrl,
+                apiKey,
+                requestBody,
+                prompt,
+                imageCount: state.images.length,
+                videoCount: readyVideos.length + videoUrls.length
+            };
+            document.getElementById('retry-btn').disabled = false;
+            
+            try {
+                const response = await fetch(`${baseUrl}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                if (requestBody.stream) {
+                    await handleStream(response, outputEl);
+                } else {
+                    const data = await response.json();
+                    const result = data.choices?.[0]?.message?.content || '无返回内容';
+                    outputEl.textContent = result;
+                    addToHistory(document.getElementById('prompt').value.trim() || ' ', result, state.images.length > 0 ? 'image' : 'video');
+                }
+                
+            } catch (err) {
+                outputEl.innerHTML = `<div style="color: var(--danger)">错误: ${err.message}</div>`;
+                showToast('请求失败: ' + err.message, 'error');
+            } finally {
+                state.isProcessing = false;
+                document.getElementById('submit-btn').innerHTML = '🚀 提交';
+            }
+        }
+
+        async function handleStream(response, outputEl) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let result = '';
+            
+            outputEl.textContent = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') continue;
+                        
+                        try {
+                            const parsed = JSON.parse(data);
+                            const content = parsed.choices?.[0]?.delta?.content;
+                            if (content) {
+                                result += content;
+                                outputEl.textContent = result;
+                                outputEl.scrollTop = outputEl.scrollHeight;
+                            }
+                        } catch {}
+                    }
+                }
+            }
+            
+            addToHistory(document.getElementById('prompt').value.trim() || ' ', result, state.images.length > 0 ? 'image' : 'video');
+        }
+
+        function retryRequest() {
+            if (!state.lastRequest) return;
+            submitRequest();
+        }
+
+        function clearInput() {
+            document.getElementById('prompt').value = '';
+            document.getElementById('video-url').value = '';
+            state.images = [];
+            state.videos = [];
+            renderImageList();
+            renderVideoList();
+            document.getElementById('output-content').innerHTML = '<div class="empty-state">等待提交...</div>';
+        }
+
+        // ==================== Output ====================
+        function toggleMarkdown() {
+            const outputEl = document.getElementById('output-content');
+            const isMarkdown = document.getElementById('markdown-toggle').checked;
+            const content = outputEl.textContent || '';
+            
+            if (isMarkdown) {
+                outputEl.classList.add('markdown');
+                outputEl.innerHTML = marked.parse(content);
+            } else {
+                outputEl.classList.remove('markdown');
+                outputEl.textContent = content;
+            }
+        }
+
+        function copyOutput() {
+            const outputEl = document.getElementById('output-content');
+            const text = outputEl.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板', 'success');
+            });
+        }
+
+        // ==================== History ====================
+        function addToHistory(prompt, result, type) {
+            const limit = parseInt(document.getElementById('history-limit').value) || 20;
+            const history = JSON.parse(localStorage.getItem('reverse_prompt_history') || '[]');
+            
+            // 如果提示词只是空格，显示友好提示
+            const displayPrompt = prompt.trim() || '(无提示词)';
+            
+            history.unshift({
+                id: Date.now(),
+                timestamp: new Date().toLocaleString(),
+                type: type,
+                prompt: displayPrompt.substring(0, 50) + (displayPrompt.length > 50 ? '...' : ''),
+                fullPrompt: prompt,
+                result: result
+            });
+            
+            while (history.length > limit) {
+                history.pop();
+            }
+            
+            localStorage.setItem('reverse_prompt_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('reverse_prompt_history') || '[]');
+            const container = document.getElementById('history-list');
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无历史记录</div>';
+                return;
+            }
+            
+            container.innerHTML = history.map(item => `
+                <div class="history-item" onclick="restoreHistory(${item.id})">
+                    <div class="history-header">
+                        <span class="history-type">${item.type === 'image' ? '📷 图片' : '🎬 视频'}</span>
+                        <span class="history-time">${item.timestamp}</span>
+                    </div>
+                    <div class="history-prompt">${escapeHtml(item.prompt)}</div>
+                    <div class="history-actions" onclick="event.stopPropagation()">
+                        <button class="btn btn-sm" onclick="copyHistoryResult(${item.id})">复制结果</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryItem(${item.id})">删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function restoreHistory(id) {
+            const history = JSON.parse(localStorage.getItem('reverse_prompt_history') || '[]');
+            const item = history.find(h => h.id === id);
+            if (!item) return;
+            
+            document.getElementById('prompt').value = item.fullPrompt;
+            document.getElementById('output-content').textContent = item.result;
+            
+            if (document.getElementById('markdown-toggle').checked) {
+                toggleMarkdown();
+            }
+            
+            showToast('已恢复历史记录', 'success');
+        }
+
+        function copyHistoryResult(id) {
+            const history = JSON.parse(localStorage.getItem('reverse_prompt_history') || '[]');
+            const item = history.find(h => h.id === id);
+            if (item) {
+                navigator.clipboard.writeText(item.result);
+                showToast('已复制结果', 'success');
+            }
+        }
+
+        function deleteHistoryItem(id) {
+            let history = JSON.parse(localStorage.getItem('reverse_prompt_history') || '[]');
+            history = history.filter(h => h.id !== id);
+            localStorage.setItem('reverse_prompt_history', JSON.stringify(history));
+            renderHistory();
+            showToast('已删除', 'success');
+        }
+
+        function clearHistory() {
+            if (!confirm('确定要清空所有历史记录吗？')) return;
+            localStorage.removeItem('reverse_prompt_history');
+            renderHistory();
+            showToast('历史记录已清空', 'success');
+        }
+
+        // ==================== Init ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            autoLoadConfig();
+            initSystemPresets();
+            renderHistory();
+
+            setupDragDrop('image-zone', 'image-input', false);
+            setupDragDrop('video-zone', 'video-input', true);
+        });
+    </script>
+</body>
+</html>
